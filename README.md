@@ -24,7 +24,7 @@ The exam achieved a mark of 79%.
 - Poisson and mixed-effects models for count data analysis
 - Statistical testing and model assumption evaluation
 - Classification modelling with ROC, AUC, and confusion matrix evaluation
-- 
+
 ---
 
 ## Datasets
