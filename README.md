@@ -27,12 +27,6 @@ The exam achieved a mark of 79%.
 
 ---
 
-## Requirements
-
-This analysis was developed using **R** and **R Markdown**.
-
-The required R libraries are included within the R Markdown file and will need to be installed before running the analysis.
-
 ## General Usage
 
 This repository contains:
