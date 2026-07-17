@@ -35,4 +35,4 @@ This repository contains:
   - The complete R Markdown source file containing the analysis, code, results, and interpretations.
 
 - `Statistical-Methods-and-Data-Analysis-Exam.html`
-  - The rendered HTML report containing the final output.
+  - The rendered HTML report containing the final output. It can be accessed by downloading it raw file and opening it locally in a browser.
