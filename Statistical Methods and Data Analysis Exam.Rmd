@@ -1,0 +1,315 @@
+---
+title: "Statistical Methods and Data Analysis Exam"
+author: "F517819"
+output: html_document
+---
+```{r setup}
+# Global rmd setting. 
+knitr::opts_chunk$set(
+  comment = "",
+  results = "hold",
+  message = FALSE,
+  warning = FALSE,
+  fig.width = 4.5,
+  fig.height = 4.5,
+  fig.align = "center"
+)
+```
+
+```{r}
+library("lindia")
+library("MASS")
+library("sandwich")
+library("investr")
+library("car")
+library("rio")
+library("pROC")
+library("nnet")
+library("tidyverse")
+library("magrittr")
+library("here")
+library("janitor")
+library("readxl")
+library("rcompanion")
+library("ggcorrplot")
+library("corrr")
+library("effects")
+library("caret")
+library("AmesHousing")
+library("lme4")
+library("merTools")
+library("AER")
+```
+
+```{r}
+# read both datasets
+playerdata <- clean_names(read.csv(here("data", "playerdata.csv"), na = c("?", "", "NA", "N/A", "Na")
+))
+
+teamdata <- clean_names(read.csv(here("data", "teamdata.csv"), na = c("?", "", "NA", "N/A", "Na")
+))
+```
+
+```{r}
+# preview data 
+glimpse(teamdata)
+```
+
+```{r}
+# review data
+glimpse(playerdata)
+```
+# Question 1
+
+## a)
+
+```{r}
+# create log base 10 of team salaries
+teamdata <- teamdata %>%
+  mutate(log10meansalary = log10(meansalary))
+```
+
+```{r}
+# Raw mean salary over years
+teamdata %>%
+  ggplot(aes(x = year_id, y = meansalary)) +
+  geom_point() +
+  geom_smooth(method = "lm") +
+  labs(x = "Year", y = "Mean Salary ($)") +
+  ggtitle("Mean Team Salary Over Years") +
+  theme_classic()
+
+# Log10 mean salary over years
+teamdata %>%
+  ggplot(aes(x = year_id, y = log10meansalary)) +
+  geom_point() +
+  geom_smooth(method = "lm") +
+  labs(x = "Year", y = "Log10(Mean Salary)") +
+  ggtitle("Log10 Mean Team Salary Over Years") +
+  theme_classic()
+```
+
+Two reasons why linear model is more appropriate for log base 10 mean salaries than for raw mean salaries:
+
+- Reduced skewness: taking logs compresses the largest values and makes the data more symmetric.
+
+- Homoscedasticity: the raw salary plot shows increasing spread in later years. Log10 stabilises this variance, making it roughly constant across all years, satisfying the constant variance assumption.
+
+## b)
+
+```{r}
+# fit the model
+linmod1 <- lm(log10meansalary ~ year_id, data = teamdata)
+summary(linmod1)
+```
+
+Form of the model:
+
+$$\log_{10}(\text{meansalary}) = -51.222 + 0.02871 \times \text{yearID}$$
+The Multiple R-Squared is 0.4878, meaning that 48.78% of the variation in log10 mean salary is explained by year. This suggests year is a moderately strong predictor of mean salary but incomplete.
+
+## c)
+
+```{r}
+linmod1_plots <- linmod1 %>%
+  gg_diagnose(max.per.page = 1, plot.all = FALSE)
+plot_all(linmod1_plots[1:6])
+```
+
+- Linearity: the residual vs. year_id plot shows points randomly scattered around 0 with no clear curved pattern, suggesting the linearity assumption is satisfied.
+
+- Normality of residuals: the histogram of residuals is roughly bell-shaped and centred around 0. The Normal-QQ plot shows points following the red diagonal line closely, with only slight deviation at the tails. The normality assumption is reasonably satisfied, with some room for improvement.
+
+Homoscedasticity: the residuals vs. fitted values plot shows the spread of residuals is roughly constant across all fitted values, with no obvious fanning in or out. The scale-location plot shows the standardised residuals are spread fairly evenly. The homoscedasticity assumption is satisfied.
+
+## d)
+
+```{r}
+# compute prediction bands
+pred1 <- predict(linmod1, interval = "prediction")
+
+# add prediction bands to dataset
+myteamdata <- cbind(teamdata, pred1)
+
+# plot with confidence and prediction bands, coloured by World Series winner
+myteamdata %>%
+  ggplot(mapping = aes(x = year_id, y = log10meansalary, colour = ws_win)) +
+  geom_point() +
+  geom_smooth(method = lm, colour = "black") +
+  geom_line(aes(y = lwr), colour = 2, lty = 2) +
+  geom_line(aes(y = upr), colour = 2, lty = 2) +
+  labs(x = "Year", y = "Log10(Mean Salary)", colour = "Won World Series") +
+  scale_colour_discrete(labels = c("N" = "No", "Y" = "Yes")) +
+  ggtitle("Log10 Mean Team Salary Over Years") +
+  theme_classic()
+```
+
+The confidence band is very narrow, reflecting low uncertainty in the estimated mean log10 salary for a given year. The prediction band is considerably wider, as it accounts for uncertainty in the estimate of the mean and the variance in the residuals. Teams that won the World Series often had higher than average salaries compared with other teams in the same season, however, high salary does not guarantee winning.
+
+## e)
+
+```{r}
+
+# find info for points above the upper prediction band
+above_band <- myteamdata %>%
+  filter(log10meansalary > upr) %>%
+  select(year_id, team_id, name, meansalary, log10meansalary, upr, ws_win)
+
+above_band
+```
+
+All points above the upper prediction band relate to the New York Yankees (NYA). This indicates that the Yankees had exceptionally high mean salaries and were systematic outliers. Despite this, they only won the World Series once, suggesting that a very high mean salary might not be a good predictor for World Series winning.
+
+# 2
+
+## a)
+
+```{r}
+# create OnBase dataset of players with at least one hit
+OnBase <- playerdata %>%
+  filter(h >= 1) %>%
+  mutate(year = as.factor(year_id))
+
+# fit Poisson model of runs as a function of hits, year, position, height and age
+glm1 <- glm(r ~ h + year + pos + height + age, 
+            data = OnBase, 
+            family = "poisson")
+
+summary(glm1)
+```
+
+
+## b)
+
+```{r, comment="", eval=TRUE, echo=TRUE, warning=FALSE, message=FALSE}
+# Likelihood Ratio Test for each predictor
+car::Anova(glm1, test = "LR")
+```
+
+Each p-value tests the null hypothesis $H_o$ that the predictor has no effect on the number of runs, against the alternative $H_1$ that at least one coefficient is non-zero, after accounting for all other predictors in the model. A p-value is the probability of observing a test statistic as extreme as, or more extreme than, the one calculated from the data, assuming the null hypothesis is true. A small p-value (< 0.05) gives evidence against the null hypothesis.
+
+The most important predictor is hits with a p-value < 2.2e-16, giving very strong evidence of an effect on runs scored. Equally, pos has a p-value < 2.2e-16, giving very strong evidence that position significantly affects runs. Age is also significant with a p-value of 9.705e-05, giving strong evidence of an effect. Year is marginally significant with a p-value of 0.016, suggesting a small difference in runs between 1985 and 2015. Finally, height has a p-value of 0.110, which is above 0.05, meaning there is insufficient evidence that height has any significant effect on runs scored after accounting for the other predictors.
+
+## c)
+
+
+```{r}
+# scale-location plot to assess dispersion assumption
+plot(glm1, which = 3)
+
+# linearity - residuals vs fitted
+plot(glm1, which = 1)
+
+# dispersion test
+dispersiontest(glm1)
+```
+
+- Dispersion: The scale-location plot shows the red line is somewhat flat and horizontal, however it rises slightly in the middle and at the end tail, suggesting the equidispersion assumption is not perfectly satisfied. This is confirmed by the dispersion test, which gives a dispersion estimate of 3.71 and a p-value < 2.2e-16, providing very strong evidence of overdispersion. A quasipoisson or negative binomial model may be more appropriate.
+
+- Residuals: The residuals versus fitted values plot shows a clear curved pattern rather than random scatter around zero. This suggests that the Poisson model does not fully capture the relationship between the predictors and the number of runs.
+
+## d)
+
+```{r}
+# fit mixed effects Poisson model with teamID as random effect
+glm2 <- glmer(r ~ h + year + pos + height + age + (1 | team_id),
+              data = OnBase,
+              family = "poisson",
+              nAGQ = 0)
+glm2
+```
+
+```{r}
+# test significance of random effect
+anova(glm1, glm2)
+```
+
+Form of the model: 
+
+$$\log(E(R)) = \beta_0 + \beta_1 H_i + \beta_2 \text{Year}_i + \beta_3 \text{POS}_i + \beta_4 \text{Height}_i + \beta_5 \text{Age}_i + b_{\text{team}(i)}, \quad b_{\text{team}(i)} \sim N(0,\sigma^2_{\text{team}})$$
+
+The random effect for teamID has a standard deviation of 0.0965, indicating that after accounting for hits, year, position, height and age, there is relatively little variation between teams in their baseline run scoring on the log scale. Therefore, team appears to have a relatively small practical effect on the number of runs scored. However, including teamID as a random effect reduced the AIC from 12616 to 12286, a decrease of approximately 330. This indicates a substantial improvement in model fit and provides strong evidence that team contributes to explaining variation in runs scored, even though the team-to-team variation is relatively small.
+
+## e)
+
+```{r}
+predict(glm2, 
+        newdata = data.frame(
+          h = 20,
+          year = as.factor("2015"),
+          pos = "OF",
+          height = 72,
+          age = 30,
+          team_id = "BAL"
+        ), 
+        type = "response")
+```
+
+# 3
+
+## a) 
+
+```{r}
+set.seed(123)
+training_samples <- c(teamdata$div_win) %>%
+  createDataPartition(p = 0.75, list = FALSE)
+
+train_data <- teamdata[training_samples, ]
+test_data <- teamdata[-training_samples, ]
+```
+
+## b)
+
+```{r}
+# fit logistic model on training data
+train_model <- glm(as.factor(div_win) ~ w + l, 
+                   data = train_data, 
+                   family = "binomial")
+
+# predict on training and testing data
+predtrain <- predict(train_model, type = "response")
+predtest <- predict(train_model, newdata = test_data, type = "response")
+
+# ROC curves plots for training and testing data
+roctrain <- roc(response = train_data$div_win, predictor = predtrain,
+                plot = TRUE,
+                main = "ROC Curve for prediction of Division Winner",
+                auc = TRUE)
+
+roc(response = test_data$div_win, predictor = predtest,
+    plot = TRUE, add = TRUE, col = 2,
+    auc = TRUE)
+
+legend("bottomright", 
+       legend = c("Training", "Testing"),
+       col = c(1, 2), lwd = 2)
+```
+
+The ROC curves for the training and testing datasets are both well above the diagonal reference line and are very similar in shape, indicating strong predictive performance and little evidence of overfitting. The testing AUC is 0.945, which is considered an excellent number. Therefore, the model is highly effective at distinguishing division winners from non-winners and appears to generalise well to unseen data.
+
+## c)
+
+```{r}
+
+# find Youden's index cutoff from training data
+youdens <- coords(roctrain, "best", best.method = "youden", 
+                  ret = c("threshold", "sensitivity", "specificity"))
+youdens
+
+# cutoff value
+cutoff <- youdens$threshold
+
+# confusion matrix for training data
+confusionMatrix(
+  as.factor(ifelse(predtrain >= cutoff, "Y", "N")),
+  as.factor(train_data$div_win)
+)
+
+# confusion matrix for testing data
+confusionMatrix(
+  as.factor(ifelse(predtest >= cutoff, "Y", "N")),
+  as.factor(test_data$div_win)
+)
+```
+
+The model performs well with a testing accuracy of 86.5%. The false negative rate is 12.1% and false positive rate is 13.8% on the testing data, both low and similar, suggesting no strong bias towards either error type. The small drop in accuracy from training (90.2%) to testing (86.5%) indicates the model generalises well with no overfitting. Additonally, The confusion matrix further supports this, with only 4 false negatives and 18 false positives in the testing data.
