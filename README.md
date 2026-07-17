@@ -9,7 +9,7 @@ GitHub: [https://github.com/MilenaMorawska](https://github.com/MilenaMorawska)
 
 ## Overview
 
-This repository contains the R Markdown analysis completed for the **MAP501: Statistical Methods and Data Analysis** exam.
+This repository contains the R Markdown analysis completed for the Statistical Methods and Data Analysis module exam.
 
 The project applies statistical modelling and data analysis techniques to investigate relationships within baseball datasets. The analysis explores salary trends over time, factors influencing player performance, and predictive modelling approaches for identifying successful teams.
 
