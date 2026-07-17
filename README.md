@@ -31,9 +31,9 @@ The exam achieved a mark of 79%.
 
 The analysis uses two baseball datasets:
 
-### `teamdata.csv`
+ `teamdata.csv`
 
-### `playerdata.csv`
+ `playerdata.csv`
 
 ---
 
