@@ -27,16 +27,6 @@ The exam achieved a mark of 79%.
 
 ---
 
-## Datasets
-
-The analysis uses two baseball datasets:
-
- `teamdata.csv`
-
- `playerdata.csv`
-
----
-
 ## Requirements
 
 This analysis was developed using **R** and **R Markdown**.
